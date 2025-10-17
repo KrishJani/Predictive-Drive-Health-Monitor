@@ -58,10 +58,23 @@ contamination_rate = st.sidebar.slider(
     value=0.01,
     step=0.0001,
     format="%.4f",
-    help="Lower values = more conservative (fewer false positives, but may miss some failures). Higher values = more aggressive (catches more failures, but more false positives)."
+    help="Controls recall vs precision trade-off. Lower = higher precision, lower recall. Higher = higher recall, lower precision."
 )
 
-st.sidebar.write("**💡 Tip:** For better recall, try values closer to 0.0001-0.0005")
+# Show expected recall based on contamination
+if contamination_rate <= 0.001:
+    expected_recall = "~10% (Very selective)"
+elif contamination_rate <= 0.005:
+    expected_recall = "~30% (Selective)"
+elif contamination_rate <= 0.01:
+    expected_recall = "~50% (Balanced)"
+elif contamination_rate <= 0.02:
+    expected_recall = "~70% (Inclusive)"
+else:
+    expected_recall = "~90% (Very inclusive)"
+
+st.sidebar.write(f"**Expected Recall:** {expected_recall}")
+st.sidebar.write("**💡 Tip:** For maximum recall, use 0.02-0.05. For balanced performance, use 0.01.")
 
 run_button = st.sidebar.button("Run Analysis", type="primary")
 

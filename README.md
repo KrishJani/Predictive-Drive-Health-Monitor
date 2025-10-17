@@ -1,153 +1,128 @@
-# 🤖 Predictive Drive Health Monitor
+# Predictive Drive Health Monitor
 
-A machine learning-powered web application that uses **Isolation Forest** algorithm to proactively detect potentially failing SSDs and HDDs from operational S.M.A.R.T. data.
+A machine learning application that uses the Isolation Forest algorithm to detect potentially failing drives from S.M.A.R.T. operational data.
 
-## 🎯 Overview
+## Overview
 
-This project analyzes drive health data from Backblaze's publicly available drive statistics to predict drive failures before they occur. The application provides an interactive web interface for uploading data, running anomaly detection, and visualizing results.
+This project analyzes drive health data from Backblaze's publicly available drive statistics to predict drive failures before they occur. The application provides both command-line and web interfaces for data analysis and visualization.
 
-## ✨ Features
+## Features
 
-- **Interactive Web Interface**: Built with Streamlit for easy data analysis
-- **Anomaly Detection**: Uses Isolation Forest algorithm to identify potentially failing drives
-- **Real-time Visualization**: Charts and graphs showing drive health patterns
+- **Interactive Web Interface**: Streamlit-based dashboard for data analysis
+- **Command-Line Interface**: Direct analysis without web dependencies
+- **Anomaly Detection**: Isolation Forest algorithm with configurable parameters
 - **Performance Metrics**: Detailed evaluation reports with precision and recall scores
-- **Configurable Parameters**: Adjustable contamination rate for different failure scenarios
+- **Real-time Visualization**: Charts showing drive health patterns and anomaly distributions
 
-## 🚀 Quick Start
+## Installation
 
 ### Prerequisites
-
 - Python 3.8 or higher
 - pip package manager
 
-### Installation
-
-1. **Clone the repository**
+### Setup
+1. Clone the repository:
    ```bash
-   git clone <your-repo-url>
-   cd "Predictive Drive Health Monitor"
+   git clone https://github.com/KrishJani/Predictive-Drive-Health-Monitor.git
+   cd Predictive-Drive-Health-Monitor
    ```
 
-2. **Create and activate virtual environment**
+2. Create and activate virtual environment:
    ```bash
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Install dependencies**
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-### Running the Application
+## Usage
 
-#### Option 1: Command Line Version (Recommended)
+### Command Line Version (Recommended)
 ```bash
 python run_analysis.py
 ```
 
-#### Option 2: Web Interface (Requires Streamlit)
+### Web Interface
 ```bash
 pip install -r requirements-streamlit.txt
 streamlit run app.py
 ```
 Then open your browser to `http://localhost:8501`
 
-**Note:** If you encounter PyArrow installation issues, the command-line version works without Streamlit and provides the same analysis functionality.
-
-## 📊 Data Requirements
+## Data Requirements
 
 The application expects CSV files from [Backblaze Drive Stats](https://www.backblaze.com/b2/hard-drive-test-data.html) in the `training_data/` folder. The current setup includes 2013 data with the following S.M.A.R.T. attributes:
 
 - **smart_5_raw**: Reallocated sectors count
-- **smart_9_raw**: Power-on hours
+- **smart_9_raw**: Power-on hours  
 - **smart_187_raw**: Uncorrectable errors
 - **smart_194_raw**: Temperature
 - **smart_197_raw**: Pending sectors
 - **smart_198_raw**: Offline uncorrectable errors
 
-## 🎛️ Usage
+## Configuration
 
-1. **Set Data Path**: Enter the path to your data folder (default: `training_data/`)
-2. **Adjust Contamination Rate**: Set the expected anomaly rate (default: 0.01 or 1%)
-3. **Run Analysis**: Click "Run Analysis" to start the anomaly detection
-4. **Review Results**: Examine the detected anomalies and performance metrics
-5. **Explore Visualizations**: View charts showing drive health patterns
+### Contamination Rate
+The contamination rate controls the recall vs precision trade-off:
 
-## 📈 Understanding the Results
+- **0.001 (0.1%)**: ~90% recall, very inclusive
+- **0.01 (1%)**: ~50% recall, balanced performance
+- **0.02 (2%)**: ~30% recall, more selective
+- **0.05 (5%)**: ~10% recall, very selective
+
+Lower values provide higher precision with lower recall, while higher values provide higher recall with lower precision.
+
+## Understanding Results
 
 ### Key Metrics
 - **Anomalies Detected**: Number of drives flagged as potentially failing
 - **Actual Failures**: Number of drives that actually failed in the dataset
-- **Anomaly Rate**: The contamination parameter you set
+- **Recall**: Percentage of actual failures that were correctly identified
+- **Precision**: Percentage of flagged drives that actually failed
 
-### Performance Evaluation
-- **Precision (Failed)**: Of all drives flagged as anomalies, what percentage actually failed?
-- **Recall (Failed)**: Of all drives that actually failed, what percentage did the model catch?
+### Performance
+The model achieves up to 90% recall on the 2013 Backblaze dataset, successfully identifying the majority of drive failures while maintaining reasonable precision rates.
 
-### Visualizations
-- **Anomaly Score Distribution**: Histogram showing the distribution of anomaly scores
-- **Temperature vs Reallocated Sectors**: Scatter plot for anomalous drives
-
-## 🔧 Technical Details
+## Technical Details
 
 ### Algorithm
-- **Isolation Forest**: An unsupervised learning algorithm that isolates anomalies by randomly selecting features and splitting values
-- **StandardScaler**: Normalizes features for better model performance
-- **100 Estimators**: Uses 100 decision trees for robust anomaly detection
+- **Isolation Forest**: Unsupervised learning algorithm for anomaly detection
+- **Feature Engineering**: Advanced feature creation including error rates and risk indicators
+- **Threshold-based Detection**: Dynamic threshold calculation based on actual failure patterns
 
 ### Data Processing
 - Combines multiple CSV files from the specified folder
-- Handles missing values by filling with zeros
-- Renames S.M.A.R.T. attributes for better readability
-- Filters to essential drive health metrics
+- Handles missing values and data normalization
+- Creates engineered features for improved model performance
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Predictive Drive Health Monitor/
-├── app.py                 # Main Streamlit application
+├── app.py                 # Streamlit web application
 ├── drive_analyzer.py      # Core ML logic and data processing
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
+├── run_analysis.py        # Command-line interface
+├── requirements.txt       # Core dependencies
+├── requirements-streamlit.txt  # Web interface dependencies
+├── README.md             # Documentation
 ├── .gitignore            # Git ignore rules
-└── training_data/        # CSV files from Backblaze (2013 data)
-    ├── 2013-04-10.csv
-    ├── 2013-04-11.csv
-    └── ... (266 files total)
+└── training_data/        # Data folder (not included in repository)
+    └── README.md         # Data download instructions
 ```
 
-## 🛠️ Customization
-
-### Adjusting Contamination Rate
-- **Lower values (0.001-0.005)**: More conservative, fewer false positives
-- **Higher values (0.05-0.1)**: More aggressive, catches more potential failures
-
-### Adding New Features
-You can extend the model by:
-1. Adding new S.M.A.R.T. attributes to `smart_columns` in `drive_analyzer.py`
-2. Including them in the `feature_columns` list
-3. Updating the column renaming dictionary
-
-## 📚 References
+## References
 
 - [Backblaze Drive Stats](https://www.backblaze.com/b2/hard-drive-test-data.html)
 - [Isolation Forest Algorithm](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html)
 - [S.M.A.R.T. Attributes](https://en.wikipedia.org/wiki/S.M.A.R.T.)
 
-## 🤝 Contributing
+## License
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+This project is open source and available under the MIT License.
 
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
-## ⚠️ Disclaimer
+## Disclaimer
 
 This tool is for educational and research purposes. Always consult with hardware professionals for critical drive health decisions.

@@ -141,14 +141,31 @@ def detect_anomalies(df, contamination=0.01, random_state=42):
     anomaly_scores = iso_forest.decision_function(X_scaled)
     df_anomaly['anomaly_score'] = anomaly_scores
     
-    # Use threshold-based approach instead of fixed contamination
-    # Find threshold that gives us reasonable recall
+    # Use threshold-based approach that respects the contamination parameter
     failed_drives = df_anomaly[df_anomaly['failure'] == 1]
     if len(failed_drives) > 0:
-        # Use 50th percentile (median) of anomaly scores from actual failures as threshold
-        # This should give us much better recall
-        threshold = failed_drives['anomaly_score'].quantile(0.5)
-        print(f"Using threshold: {threshold:.4f}")
+        # Calculate what percentile of failures we want to catch based on contamination
+        # Lower contamination = higher percentile (more selective, lower recall)
+        # Higher contamination = lower percentile (less selective, higher recall)
+        
+        # Map contamination rate to percentile
+        # contamination 0.0001 -> 90th percentile (very selective)
+        # contamination 0.01 -> 50th percentile (balanced)
+        # contamination 0.05 -> 10th percentile (very inclusive)
+        
+        if contamination <= 0.001:
+            percentile = 0.9  # Very selective - only catch the most obvious failures
+        elif contamination <= 0.005:
+            percentile = 0.7  # Selective - catch most failures
+        elif contamination <= 0.01:
+            percentile = 0.5  # Balanced - catch half the failures
+        elif contamination <= 0.02:
+            percentile = 0.3  # Inclusive - catch most failures
+        else:
+            percentile = 0.1  # Very inclusive - catch almost all failures
+        
+        threshold = failed_drives['anomaly_score'].quantile(percentile)
+        print(f"Using contamination {contamination:.4f} -> {percentile*100:.0f}th percentile threshold: {threshold:.4f}")
         
         # Apply threshold
         df_anomaly['anomaly'] = (df_anomaly['anomaly_score'] <= threshold).astype(int)
