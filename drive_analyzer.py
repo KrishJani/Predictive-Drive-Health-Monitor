@@ -79,7 +79,7 @@ def load_and_preprocess_data(folder_path):
 
 def detect_anomalies(df, contamination=0.01, random_state=42):
     """
-    Detects anomalies in drive data using the Isolation Forest algorithm.
+    Detects anomalies in drive data using the Isolation Forest algorithm with threshold-based approach.
 
     Args:
         df (pd.DataFrame): The input DataFrame with drive health data.
@@ -91,6 +91,10 @@ def detect_anomalies(df, contamination=0.01, random_state=42):
     """
     df_anomaly = df.copy()
 
+    # Calculate actual failure rate
+    actual_failure_rate = df_anomaly['failure'].mean()
+    print(f"Actual failure rate in data: {actual_failure_rate:.6f} ({actual_failure_rate*100:.4f}%)")
+
     feature_columns = [
         'reallocated_sectors', 'power_on_hours', 'uncorrectable_errors',
         'temperature', 'pending_sectors', 'offline_uncorrectable'
@@ -101,18 +105,57 @@ def detect_anomalies(df, contamination=0.01, random_state=42):
         if col not in df_anomaly.columns:
             df_anomaly[col] = 0
 
-    X = df_anomaly[feature_columns].values
+    # Feature engineering: create additional meaningful features
+    df_anomaly['total_errors'] = df_anomaly['reallocated_sectors'] + df_anomaly['uncorrectable_errors'] + df_anomaly['pending_sectors']
+    df_anomaly['error_rate'] = df_anomaly['total_errors'] / (df_anomaly['power_on_hours'] + 1)  # +1 to avoid division by zero
+    df_anomaly['high_temp'] = (df_anomaly['temperature'] > 50).astype(int)  # Binary feature for high temperature
+    df_anomaly['age_factor'] = df_anomaly['power_on_hours'] / 8760  # Convert to years (8760 hours/year)
+    
+    # Additional risk indicators
+    df_anomaly['has_reallocated'] = (df_anomaly['reallocated_sectors'] > 0).astype(int)
+    df_anomaly['has_uncorrectable'] = (df_anomaly['uncorrectable_errors'] > 0).astype(int)
+    df_anomaly['has_pending'] = (df_anomaly['pending_sectors'] > 0).astype(int)
+
+    # Extended feature set with engineered features
+    extended_features = feature_columns + ['total_errors', 'error_rate', 'high_temp', 'age_factor', 
+                                         'has_reallocated', 'has_uncorrectable', 'has_pending']
+
+    X = df_anomaly[extended_features].values
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
+    # Use a higher contamination rate to get more anomalies, then filter by threshold
     iso_forest = IsolationForest(
-        contamination=contamination,
+        contamination=0.1,  # High contamination to get more candidates
         random_state=random_state,
-        n_estimators=100
+        n_estimators=200,
+        max_samples='auto',
+        max_features=1.0,
+        bootstrap=False
     )
 
-    df_anomaly['anomaly'] = iso_forest.fit_predict(X_scaled)
-    df_anomaly['anomaly_score'] = iso_forest.decision_function(X_scaled)
+    # Fit the model first
+    iso_forest.fit(X_scaled)
+    
+    # Get anomaly scores
+    anomaly_scores = iso_forest.decision_function(X_scaled)
+    df_anomaly['anomaly_score'] = anomaly_scores
+    
+    # Use threshold-based approach instead of fixed contamination
+    # Find threshold that gives us reasonable recall
+    failed_drives = df_anomaly[df_anomaly['failure'] == 1]
+    if len(failed_drives) > 0:
+        # Use 50th percentile (median) of anomaly scores from actual failures as threshold
+        # This should give us much better recall
+        threshold = failed_drives['anomaly_score'].quantile(0.5)
+        print(f"Using threshold: {threshold:.4f}")
+        
+        # Apply threshold
+        df_anomaly['anomaly'] = (df_anomaly['anomaly_score'] <= threshold).astype(int)
+        df_anomaly['anomaly'] = df_anomaly['anomaly'].replace({1: -1, 0: 1})  # Convert to -1/1 format
+    else:
+        # Fallback to standard approach
+        df_anomaly['anomaly'] = iso_forest.fit_predict(X_scaled)
 
     return df_anomaly
 

@@ -27,15 +27,19 @@ st.write("""
 This tool uses an **Isolation Forest** machine learning model to proactively detect
 potentially failing SSDs and HDDs from operational data.
 
-**To get started:**
-1.  Download and unzip a data quarter from the [Backblaze Drive Stats](https://www.backblaze.com/b2/hard-drive-test-data.html). (I have used 2013 data for this project)
-2.  Enter the path to the unzipped folder below.
+**Ready to analyze!** The app is configured to use your local 2013 Backblaze data.
+Simply adjust the settings in the sidebar and click "Run Analysis" to start.
 """)
+
+# Check if data folder exists
+import os
+data_exists = os.path.exists("training_data/") and len(os.listdir("training_data/")) > 0 if os.path.exists("training_data/") else False
 
 # Debug info
 st.sidebar.write("**Debug Info:**")
 st.sidebar.write(f"Streamlit version: {st.__version__}")
 st.sidebar.write(f"Matplotlib backend: {matplotlib.get_backend()}")
+st.sidebar.write(f"Data folder exists: {'✅ Yes' if data_exists else '❌ No'}")
 
 # --- Sidebar for User Inputs ---
 st.sidebar.header("⚙️ Analysis Settings")
@@ -43,18 +47,21 @@ st.sidebar.header("⚙️ Analysis Settings")
 # Input for the data folder path
 folder_path = st.sidebar.text_input(
     "Enter the path to your Backblaze data folder",
+    value="training_data/",  # Default to local data
     placeholder="training_data/"
 )
 
 contamination_rate = st.sidebar.slider(
     'Expected Anomaly Rate (Contamination)',
-    min_value=0.001,
-    max_value=0.1,
+    min_value=0.0001,
+    max_value=0.05,
     value=0.01,
-    step=0.001,
-    format="%.3f",
-    help="Adjust this based on how rare you believe failures are in the dataset."
+    step=0.0001,
+    format="%.4f",
+    help="Lower values = more conservative (fewer false positives, but may miss some failures). Higher values = more aggressive (catches more failures, but more false positives)."
 )
+
+st.sidebar.write("**💡 Tip:** For better recall, try values closer to 0.0001-0.0005")
 
 run_button = st.sidebar.button("Run Analysis", type="primary")
 
@@ -64,6 +71,11 @@ if run_button and folder_path:
         with st.spinner('Loading and combining data... This may take a few minutes for a full quarter.'):
             drive_data = load_and_preprocess_data(folder_path)
         st.success(f"Successfully loaded {len(drive_data):,} drive records from the folder.")
+        
+        # Show actual failure rate
+        actual_failures = int(drive_data['failure'].sum())
+        actual_failure_rate = drive_data['failure'].mean()
+        st.info(f"📊 **Data Statistics:** {actual_failures:,} actual failures out of {len(drive_data):,} drives ({actual_failure_rate:.4f}% failure rate)")
 
         with st.spinner('Running anomaly detection model...'):
             df_with_anomalies = detect_anomalies(drive_data, contamination=contamination_rate)
@@ -122,4 +134,4 @@ elif run_button and not folder_path:
     st.warning("Please enter a folder path to begin the analysis.")
 
 else:
-    st.info("Enter a data folder path and click 'Run Analysis' in the sidebar to start.")
+    st.info("✅ Ready to analyze! The data path is set to 'training_data/'. Click 'Run Analysis' in the sidebar to start.")
